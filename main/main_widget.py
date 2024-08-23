@@ -2,7 +2,7 @@ from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 
 from buttons import ButtonsPlaceholder
-from coordinate_forms import LocationPlaceholder, GeneratorLocationEditorPlaceholder
+from coordinate_forms import PointLocationPlaceholder, GeneratorLocationEditorPlaceholder
 from delays import DelaysPlaceholder
 from grid import GridPlaceholder, SystemItem, SystemItemType
 
@@ -17,12 +17,16 @@ class MainWidget(QWidget):
         right_layout = QVBoxLayout()
 
         self.grid_widget = GridPlaceholder()
-        self.point_location_widget = LocationPlaceholder(QPoint(0, 0), 'Координаты точки приема')
-        self.initialize_grid_placeholder()
+        self.point_location_widget = PointLocationPlaceholder(QPoint(0, 0), 'Координаты точки приема')
+        self.point_location_widget.location_changed.connect(self.onPointLocationChanged)
         self.buttons = ButtonsPlaceholder()
 
+        initial_x_values = [0, 0, 0, 0, 0, 0, 0, 0]
+        initial_y_values = [0, 0, 0, 0, 0, 0, 0, 0]
+
         self.delays_widget = DelaysPlaceholder()
-        self.generators_locations = GeneratorLocationEditorPlaceholder()
+        self.generators_locations = GeneratorLocationEditorPlaceholder(initial_x_values, initial_y_values)
+        self.generators_locations.generator_location_changed.connect(self.onGeneratorLocationChanged)
 
         left_layout.addWidget(self.grid_widget)
         left_layout.addWidget(self.point_location_widget)
@@ -35,9 +39,8 @@ class MainWidget(QWidget):
         main_layout.addLayout(right_layout)
         self.setLayout(main_layout)
 
-    def initialize_grid_placeholder(self):
-        signal_distributor = SystemItem('G', SystemItemType.signal_distributor, QPoint(0, 0))
-        self.grid_widget.add_system_item(signal_distributor)
-        for i in range(1, 9):
-            new_item = SystemItem(str(i), SystemItemType.generator, QPoint(i * 10 + 40, i * 10 + 40))
-            self.grid_widget.add_system_item(new_item)
+    def onGeneratorLocationChanged(self, gener_num: int, new_location: QPoint):
+        self.grid_widget.process_generator_location_change(gener_num, new_location)
+
+    def onPointLocationChanged(self, new_location: QPoint):
+        self.grid_widget.process_point_location_change(new_location)
