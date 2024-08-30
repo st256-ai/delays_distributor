@@ -1,8 +1,7 @@
-from PySide6 import QtWidgets
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QWidget, QLabel, QLineEdit, QHBoxLayout, QVBoxLayout, QTableWidget, \
-    QTableWidgetItem
+    QTableWidgetItem, QHeaderView
 
 
 class NamePlaceholder(QLabel):
@@ -30,7 +29,7 @@ class SimpleCoordinatePlaceholder(QWidget):
         else:
             self.name_placeholder = NamePlaceholder(name, 12)
 
-        self.editor = QLineEdit()
+        self.editor = QLineEdit(str(self.value))
         self.editor.editingFinished.connect(self.onValueChanged)
 
         layout = QHBoxLayout()
@@ -38,6 +37,10 @@ class SimpleCoordinatePlaceholder(QWidget):
             layout.addWidget(self.name_placeholder)
         layout.addWidget(self.editor)
         self.setLayout(layout)
+
+    def set_value(self, new_value: int):
+        self.value = new_value
+        self.editor.setText(str(new_value))
 
     def get_value(self):
         text = self.editor.text()
@@ -52,17 +55,18 @@ class PointLocationPlaceholder(QWidget):
     location: QPoint
     location_changed = Signal(QPoint)
 
-    def __init__(self, location: QPoint, name: str = ''):
+    def __init__(self, initial_location: QPoint, name: str = ''):
         super().__init__()
-        self.location = location
+        self.initial_location = initial_location
+        self.location = initial_location
 
         if str != '':
             self.name_placeholder = NamePlaceholder(name)
         self.name_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.x_box = SimpleCoordinatePlaceholder(0, 'x:')
-        self.x_box.location_changed.connect(self.perform_x_change)
-        self.y_box = SimpleCoordinatePlaceholder(0, 'y:')
-        self.y_box.location_changed.connect(self.perform_y_change)
+        self.x_box = SimpleCoordinatePlaceholder(initial_location.x(), 'x:')
+        self.x_box.location_changed.connect(self._perform_x_change)
+        self.y_box = SimpleCoordinatePlaceholder(initial_location.y(), 'y:')
+        self.y_box.location_changed.connect(self._perform_y_change)
 
         h_layout = QHBoxLayout()
         h_layout.addWidget(self.x_box)
@@ -74,29 +78,40 @@ class PointLocationPlaceholder(QWidget):
 
         self.setLayout(v_layout)
 
-    def perform_x_change(self, new_x_value: int):
+    def reset_location(self):
+        self.set_location(self.initial_location)
+        self.x_box.set_value(self.initial_location.x())
+        self.y_box.set_value(self.initial_location.y())
+
+    def set_location(self, location: QPoint):
+        self.location = location
+
+    def get_location(self) -> QPoint:
+        return self.location
+
+    def _perform_x_change(self, new_x_value: int):
         previous_y = self.location.y()
         new_location = QPoint(new_x_value, previous_y)
         self.set_location(new_location)
         self.location_changed.emit(new_location)
 
-    def perform_y_change(self, new_y_value: int):
+    def _perform_y_change(self, new_y_value: int):
         previous_x = self.location.x()
         new_location = QPoint(previous_x, new_y_value)
         self.set_location(new_location)
         self.location_changed.emit(new_location)
 
-    def set_location(self, location: QPoint):
-        self.location = location
-
 
 class GeneratorLocationEditorPlaceholder(QWidget):
     generator_location_changed = Signal(int, QPoint)
-    generators_locations = {}
+    _generators_locations: {int, QPoint} = {}
 
     def __init__(self, initial_x_values: list[int], initial_y_values: list[int]):
         super().__init__()
         self.placeholders = {}
+
+        self.initial_x_values = initial_x_values
+        self.initial_y_values = initial_y_values
 
         self.name_placeholder = NamePlaceholder('Координаты генераторов')
         self.name_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -106,47 +121,65 @@ class GeneratorLocationEditorPlaceholder(QWidget):
         self.table.setColumnCount(3)
         self.table.setRowCount(8)
 
-        self.table.setSizeAdjustPolicy(QtWidgets.QHeaderView.SizeAdjustPolicy.AdjustToContents)
+        # self.table.setContentsMargins(QtWidgets.QHeaderView.SizeAdjustPolicy.AdjustIgnored)
 
         self.table.setHorizontalHeaderLabels(["Номер", "x", "y"])
+        self.table.horizontalHeaderItem(0).setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.table.verticalHeader().setVisible(False)
-
-        for gener_num in range(0, 8):
-            initial_point = QPoint(initial_x_values[gener_num], initial_y_values[gener_num])
-            self.generators_locations[gener_num] = initial_point
-            self.table.setItem(gener_num, 0, QTableWidgetItem(str(gener_num + 1)))
-            self.enrich_x_table_cell(gener_num, initial_point.x())
-            self.enrich_y_table_cell(gener_num, initial_point.y())
 
         # Do the resize of the columns by content
         self.table.resizeColumnsToContents()
         self.table.adjustSize()
+
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setStretchLastSection(True)
+        self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+        for gener_num in range(0, 8):
+            initial_point = QPoint(initial_x_values[gener_num], initial_y_values[gener_num])
+            self._generators_locations[gener_num] = initial_point
+            widget_item = QTableWidgetItem(str(gener_num + 1))
+            widget_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(gener_num, 0, widget_item)
+            self.__enrich_x_table_cell(gener_num, initial_point.x())
+            self.__enrich_y_table_cell(gener_num, initial_point.y())
 
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.name_placeholder)
         main_layout.addWidget(self.table)
         self.setLayout(main_layout)
 
-    def enrich_x_table_cell(self, gener_num: int, initial_x_value: int):
+    def reset_locations(self):
+        for gener_num in range(0, 8):
+            initial_point = QPoint(self.initial_x_values[gener_num], self.initial_y_values[gener_num])
+            self._generators_locations[gener_num] = initial_point
+            self.__enrich_x_table_cell(gener_num, initial_point.x())
+            self.__enrich_y_table_cell(gener_num, initial_point.y())
+
+    def get_generator_locations(self) -> {int, QPoint}:
+        return self._generators_locations
+
+    def __enrich_x_table_cell(self, gener_num: int, initial_x_value: int):
         x_widget = GeneratorCoordinatePlaceholder(gener_num, initial_x_value)
-        x_widget.generator_coordinate_changed.connect(self.perform_x_change)
+        x_widget.generator_coordinate_changed.connect(self.__perform_x_change)
         self.table.setCellWidget(gener_num, 1, x_widget)
 
-    def enrich_y_table_cell(self, gener_num: int, initial_y_value: int):
+    def __enrich_y_table_cell(self, gener_num: int, initial_y_value: int):
         y_widget = GeneratorCoordinatePlaceholder(gener_num, initial_y_value)
-        y_widget.generator_coordinate_changed.connect(self.perform_y_change)
+        y_widget.generator_coordinate_changed.connect(self.__perform_y_change)
         self.table.setCellWidget(gener_num, 2, y_widget)
 
-    def perform_x_change(self, gener_num: int, new_x_value: int):
-        previous_y = self.generators_locations[gener_num].y()
+    def __perform_x_change(self, gener_num: int, new_x_value: int):
+        previous_y = self._generators_locations[gener_num].y()
         new_location = QPoint(new_x_value, previous_y)
-        self.generators_locations[gener_num] = new_location
+        self._generators_locations[gener_num] = new_location
         self.generator_location_changed.emit(gener_num, new_location)
 
-    def perform_y_change(self, gener_num: int, new_y_value: int):
-        previous_x = self.generators_locations[gener_num].x()
+    def __perform_y_change(self, gener_num: int, new_y_value: int):
+        previous_x = self._generators_locations[gener_num].x()
         new_location = QPoint(previous_x, new_y_value)
-        self.generators_locations[gener_num] = new_location
+        self._generators_locations[gener_num] = new_location
         self.generator_location_changed.emit(gener_num, new_location)
 
 

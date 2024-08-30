@@ -1,10 +1,12 @@
 from PySide6.QtCore import QPoint
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 
 from buttons import ButtonsPlaceholder
 from coordinate_forms import PointLocationPlaceholder, GeneratorLocationEditorPlaceholder
 from delays import DelaysPlaceholder
 from grid import GridPlaceholder, SystemItem, SystemItemType
+from initializer import InitialValuesContainer
+from services import calculate_estimated_time, send_data_to_fpga
 
 
 class MainWidget(QWidget):
@@ -16,13 +18,17 @@ class MainWidget(QWidget):
         left_layout = QVBoxLayout()
         right_layout = QVBoxLayout()
 
-        self.grid_widget = GridPlaceholder()
+        initials = InitialValuesContainer()
+        initial_x_values = initials.get_generators_x_initials()
+        initial_y_values = initials.get_generators_y_initials()
+
+        self.grid_widget = GridPlaceholder(initial_x_values, initial_y_values)
         self.point_location_widget = PointLocationPlaceholder(QPoint(0, 0), 'Координаты точки приема')
         self.point_location_widget.location_changed.connect(self.onPointLocationChanged)
         self.buttons = ButtonsPlaceholder()
-
-        initial_x_values = [0, 0, 0, 0, 0, 0, 0, 0]
-        initial_y_values = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.buttons.calculate_delays.connect(self.onCalculateDelays)
+        self.buttons.reset_system.connect(self.onSystemReset)
+        self.buttons.send_delays.connect(self.onSendDelays)
 
         self.delays_widget = DelaysPlaceholder()
         self.generators_locations = GeneratorLocationEditorPlaceholder(initial_x_values, initial_y_values)
@@ -44,3 +50,30 @@ class MainWidget(QWidget):
 
     def onPointLocationChanged(self, new_location: QPoint):
         self.grid_widget.process_point_location_change(new_location)
+
+    def onCalculateDelays(self):
+        generators_locations = self.generators_locations.get_generator_locations()
+        point_location = self.point_location_widget.get_location()
+
+        generators_estimated_time = {}
+        for num, location in generators_locations.items():
+            generators_estimated_time[num] = calculate_estimated_time(location, point_location)
+
+        max_estimated_time = max(generators_estimated_time.values())
+
+        delays = {}
+        for num, estimated_time in generators_estimated_time.items():
+            delays[num] = abs(estimated_time - max_estimated_time)
+
+        self.delays_widget.set_delays(delays)
+
+
+    def onSystemReset(self):
+        self.delays_widget.reset_delays()
+        self.generators_locations.reset_locations()
+        self.point_location_widget.reset_location()
+        self.grid_widget.reset_grid()
+
+    def onSendDelays(self):
+        send_data_to_fpga(self.delays_widget.get_delays())
+        QMessageBox.information(self, "Info", "Задержки были успешно отправлены")

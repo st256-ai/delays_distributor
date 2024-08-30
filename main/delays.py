@@ -16,7 +16,7 @@ class DelayViewer(QWidget):
         self.name_placeholder = NamePlaceholder(name, 10)
         self.viewer = QLineEdit()
         self.viewer.setEnabled(False)
-        self.viewer.setText(str(initial_value))
+        self.viewer.setText(f'{initial_value:.2f}')
 
         layout = QHBoxLayout()
         layout.addWidget(self.name_placeholder)
@@ -25,10 +25,13 @@ class DelayViewer(QWidget):
 
     def set_value(self, value: float):
         self.value = value
-        self.viewer.setText(str(value))
+        self.viewer.setText(f'{value:.2f}')
 
 
 class DelaysPlaceholder(QWidget):
+
+    __INITIAL_DELAY: float = 0.0
+    __delays: {int, float}
 
     def __init__(self):
         super().__init__()
@@ -40,12 +43,28 @@ class DelaysPlaceholder(QWidget):
 
         grid_layout = QGridLayout()
 
+        self.__delays = {}
         for i in range(0, 8):
-            current_item = DelayViewer(i + 1, 0.0)
+            self.__delays[i] = self.__INITIAL_DELAY
+            current_item = DelayViewer(i + 1, self.__INITIAL_DELAY)
             self.delays_placeholders[i] = current_item
-            grid_layout.addWidget(current_item, i % 5 + 1, i % 2)
+            parity_flag = i % 2
+            grid_layout.addWidget(current_item, i - parity_flag, parity_flag)
 
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.name_placeholder)
         main_layout.addLayout(grid_layout)
         self.setLayout(main_layout)
+
+    def set_delays(self, new_delays: dict[int, float]):
+        for i in range(0, 8):
+            self.__delays[i] = new_delays[i]
+            self.delays_placeholders[i].set_value(new_delays[i])
+
+    def get_delays(self):
+        return self.__delays
+
+    def reset_delays(self):
+        for i in range(0, 8):
+            self.__delays[i] = self.__INITIAL_DELAY
+            self.delays_placeholders[i].set_value(self.__INITIAL_DELAY)

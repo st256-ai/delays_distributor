@@ -1,8 +1,9 @@
 import enum
 
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, QRectF
-from PySide6.QtGui import QBrush, QColor, QPen
-from PySide6.QtWidgets import QWidget, QGraphicsEllipseItem, QGraphicsScene, QGraphicsView, QVBoxLayout, QGraphicsItem
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, QRectF, QPointF
+from PySide6.QtGui import QBrush, QColor, QPen, QPainter
+from PySide6.QtWidgets import QWidget, QGraphicsEllipseItem, QGraphicsScene, QGraphicsView, QVBoxLayout, QGraphicsItem, \
+    QAbstractScrollArea
 
 
 class SystemItemType(enum.Enum):
@@ -23,6 +24,7 @@ class SystemItem(QGraphicsEllipseItem):
     text: str
     item_type: SystemItemType
     location: QPoint
+    rect: QRect
 
     def __init__(self, text: str, item_type: SystemItemType, location: QPoint):
         super().__init__()
@@ -34,31 +36,37 @@ class SystemItem(QGraphicsEllipseItem):
         color = determine_color(item_type)
         self.setBrush(QBrush(QColor(color), Qt.BrushStyle.SolidPattern))
 
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
-                     False)  # Do not change this value to True, it will crash the whole system!
+        is_movable = item_type == SystemItemType.signal_distributor
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, is_movable)
 
     def set_location(self, location: QPoint):
         self.location = location
-
         modified_location = QPoint(location.x() - self.RADIUS, location.y() - self.RADIUS)
-        rect: QRect = QRect(modified_location, QSize(self.RADIUS, self.RADIUS))
-        self.setRect(rect)
+        self.rect: QRect = QRect(modified_location, QSize(self.RADIUS, self.RADIUS))
+        self.setRect(self.mapRectFromScene(self.rect))
 
-    # def paintEvent(self):
+    def paint(self, painter, option, widget):
+        super().paint(painter, option, widget)
+        painter.drawText(self.rect, Qt.AlignmentFlag.AlignCenter, self.text)
 
 
 class GridPlaceholder(QWidget):
 
-    def __init__(self):
+    def __init__(self, initial_x_values: list[int], initial_y_values: list[int]):
         super().__init__()
 
-        self.scene = Scene()
+        self.initial_x_values = initial_x_values
+        self.initial_y_values = initial_y_values
 
         self.view = QGraphicsView()
+
+        self.scene = Scene()
+        self.scene.setParent(self.view)
         self.view.setScene(self.scene)
-        self.view.adjustSize()
-        self.view.setFixedHeight(400)
-        self.view.setFixedWidth(500)
+
+        self.view.setMinimumSize(500, 400)
+        self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         layout = QVBoxLayout()
         layout.addWidget(self.view)
@@ -67,19 +75,24 @@ class GridPlaceholder(QWidget):
         self.initialize()
 
     def initialize(self):
-        self.scene.set_signal_distributor(QPoint(0, 0))
+        scene_base = QPoint(250, 200)
+        self.scene.set_signal_distributor(QPoint(int(scene_base.x()), int(scene_base.y())))
         for i in range(0, 8):
-            self.scene.add_generator(i, QPoint(i * 10 + 40, i * 10 + 40))
+            self.scene.add_generator(i, QPoint(self.initial_x_values[i], self.initial_y_values[i]))
+
+    def reset_grid(self):
+        self.scene.remove_all_items()
+        self.initialize()
 
     def process_generator_location_change(self, gener_num: int, new_location: QPoint):
         self.scene.change_generator_location(gener_num, new_location)
 
     def process_point_location_change(self, new_location: QPoint):
-        self.scene.change_point_location(new_location)
+        self.scene.change_point_location(self.view.mapFromScene(new_location))
 
 
 class Scene(QGraphicsScene):
-    POINT_RADIOS = 12.0
+    POINT_RADIOS = 9.0
 
     generator_items: dict[int, SystemItem]
     signal_distributor_item: SystemItem
@@ -88,11 +101,16 @@ class Scene(QGraphicsScene):
     def __init__(self):
         super().__init__()
         self.setBackgroundBrush(Qt.BrushStyle.Dense6Pattern)
-        self.setSceneRect(QRect(0, 0, 100, 200))
+        self.setSceneRect(QRect(0, 0, 500, 400))
 
         self.generator_items = {}
         self.signal_distributor_item = None
         self.point_item = None
+
+    def remove_all_items(self):
+        items = self.items()
+        for item in items:
+            self.removeItem(item)
 
     def set_signal_distributor(self, location: QPoint):
         self.signal_distributor_item = SystemItem('G', SystemItemType.signal_distributor, location)
@@ -104,7 +122,8 @@ class Scene(QGraphicsScene):
         self.addItem(generator_item)
 
     def add_point(self, location: QPoint):
-        rect = QRectF(location.x(), location.y(), self.POINT_RADIOS, self.POINT_RADIOS)
+        rect = QRectF(location.x() - self.POINT_RADIOS, location.y() - self.POINT_RADIOS, self.POINT_RADIOS,
+                      self.POINT_RADIOS)
         color = QColor('black')
 
         self.point_item = self.addEllipse(rect, QPen(color), QBrush(color))
@@ -120,4 +139,3 @@ class Scene(QGraphicsScene):
         if self.point_item is not None:
             self.removeItem(self.point_item)
         self.add_point(new_location)
-
