@@ -1,9 +1,8 @@
 import enum
 
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, QRectF, QPointF
-from PySide6.QtGui import QBrush, QColor, QPen, QPainter
-from PySide6.QtWidgets import QWidget, QGraphicsEllipseItem, QGraphicsScene, QGraphicsView, QVBoxLayout, QGraphicsItem, \
-    QAbstractScrollArea
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, QRectF
+from PySide6.QtGui import QBrush, QColor, QPen
+from PySide6.QtWidgets import QWidget, QGraphicsEllipseItem, QGraphicsScene, QGraphicsView, QVBoxLayout, QGraphicsItem
 
 
 class SystemItemType(enum.Enum):
@@ -41,7 +40,8 @@ class SystemItem(QGraphicsEllipseItem):
 
     def set_location(self, location: QPoint):
         self.location = location
-        modified_location = QPoint(location.x() - self.RADIUS, location.y() - self.RADIUS)
+        radius = self.RADIUS / 2
+        modified_location = QPoint(int(location.x() - radius), int(location.y() - radius))
         self.rect: QRect = QRect(modified_location, QSize(self.RADIUS, self.RADIUS))
         self.setRect(self.mapRectFromScene(self.rect))
 
@@ -88,7 +88,7 @@ class GridPlaceholder(QWidget):
         self.scene.change_generator_location(gener_num, new_location)
 
     def process_point_location_change(self, new_location: QPoint):
-        self.scene.change_point_location(self.view.mapFromScene(new_location))
+        self.scene.change_point_location(new_location)
 
 
 class Scene(QGraphicsScene):
@@ -122,7 +122,7 @@ class Scene(QGraphicsScene):
         self.addItem(generator_item)
 
     def add_point(self, location: QPoint):
-        rect = QRectF(location.x() - self.POINT_RADIOS, location.y() - self.POINT_RADIOS, self.POINT_RADIOS,
+        rect = QRectF(location.x() - (self.POINT_RADIOS / 2), location.y() - (self.POINT_RADIOS / 2), self.POINT_RADIOS,
                       self.POINT_RADIOS)
         color = QColor('black')
 

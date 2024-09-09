@@ -1,12 +1,13 @@
 from PySide6.QtCore import QPoint
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 
 from buttons import ButtonsPlaceholder
 from coordinate_forms import PointLocationPlaceholder, GeneratorLocationEditorPlaceholder
 from delays import DelaysPlaceholder
-from grid import GridPlaceholder, SystemItem, SystemItemType
+from grid import GridPlaceholder
 from initializer import InitialValuesContainer
-from services import calculate_estimated_time, send_data_to_fpga
+from services import calculate_estimated_time, send_data_to_fpga, read_data_from_file, \
+    send_single_slice_of_data_to_fpga
 
 
 class MainWidget(QWidget):
@@ -23,12 +24,13 @@ class MainWidget(QWidget):
         initial_y_values = initials.get_generators_y_initials()
 
         self.grid_widget = GridPlaceholder(initial_x_values, initial_y_values)
-        self.point_location_widget = PointLocationPlaceholder(QPoint(0, 0), 'Координаты точки приема')
+        self.point_location_widget = PointLocationPlaceholder(QPoint(98, 98), 'Координаты точки приема')
         self.point_location_widget.location_changed.connect(self.onPointLocationChanged)
         self.buttons = ButtonsPlaceholder()
         self.buttons.calculate_delays.connect(self.onCalculateDelays)
         self.buttons.reset_system.connect(self.onSystemReset)
         self.buttons.send_delays.connect(self.onSendDelays)
+        self.buttons.calibrate_signals.connect(self.onCalibrateDelays)
 
         self.delays_widget = DelaysPlaceholder()
         self.generators_locations = GeneratorLocationEditorPlaceholder(initial_x_values, initial_y_values)
@@ -67,7 +69,6 @@ class MainWidget(QWidget):
 
         self.delays_widget.set_delays(delays)
 
-
     def onSystemReset(self):
         self.delays_widget.reset_delays()
         self.generators_locations.reset_locations()
@@ -75,5 +76,12 @@ class MainWidget(QWidget):
         self.grid_widget.reset_grid()
 
     def onSendDelays(self):
-        send_data_to_fpga(self.delays_widget.get_delays())
-        QMessageBox.information(self, "Info", "Задержки были успешно отправлены")
+        # send_data_to_fpga(self, self.delays_widget.get_previous_delays(), 0)
+        delays = self.delays_widget.get_delays()
+        send_data_to_fpga(self, delays, 1)
+        self.delays_widget.set_previous_delays(delays)
+
+    def onCalibrateDelays(self):
+        delays_data = read_data_from_file()
+        for k, v in delays_data.items():
+            send_single_slice_of_data_to_fpga(self, k, v[0], v[1])

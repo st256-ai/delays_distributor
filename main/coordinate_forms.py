@@ -1,7 +1,20 @@
+import enum
+
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QWidget, QLabel, QLineEdit, QHBoxLayout, QVBoxLayout, QTableWidget, \
-    QTableWidgetItem, QHeaderView
+    QTableWidgetItem, QHeaderView, QMessageBox
+
+MIN_X = 10
+MAX_X = 240
+
+MIN_Y = 10
+MAX_Y = 190
+
+
+class Coordinate(enum.Enum):
+    x = 1
+    y = 2
 
 
 class NamePlaceholder(QLabel):
@@ -15,39 +28,76 @@ class NamePlaceholder(QLabel):
 
 
 class SimpleCoordinatePlaceholder(QWidget):
-    value: int
+    __value: int
     location_changed = Signal(int)
 
-    def __init__(self, initial_value: int, name: str = '', is_placeholder_name: bool = False):
+    def __init__(self, initial_value: int, coordinate: Coordinate):
         super().__init__()
-        self.value = initial_value
+        self.__value = initial_value
+        self.coordinate = coordinate
 
-        if name == '':  # TODO Need to rework this logic
-            self.name_placeholder = None
-        elif is_placeholder_name:
-            self.name_placeholder = NamePlaceholder(name)
-        else:
-            self.name_placeholder = NamePlaceholder(name, 12)
-
-        self.editor = QLineEdit(str(self.value))
-        self.editor.editingFinished.connect(self.onValueChanged)
+        self.__editor = QLineEdit(str(self.__value))
+        self.__editor.editingFinished.connect(self._onValueChanged)
 
         layout = QHBoxLayout()
-        if self.name_placeholder is not None:  # TODO
-            layout.addWidget(self.name_placeholder)
-        layout.addWidget(self.editor)
+        layout.addWidget(self.__editor)
         self.setLayout(layout)
 
     def set_value(self, new_value: int):
-        self.value = new_value
-        self.editor.setText(str(new_value))
+        self.__validate_input(new_value)
+        self.__value = new_value
+        self.__editor.setText(str(new_value))
+
+    def __validate_input(self, new_value) -> bool:
+        if isinstance(new_value, str):
+            try:
+                int(new_value)
+            except ValueError:
+                QMessageBox.critical(self, "Error", 'Координата должна быть числом!')
+                return False
+
+        int_value = int(new_value)
+        if self.coordinate == Coordinate.x:
+            if MIN_X <= int_value <= MAX_X:
+                return True
+            else:
+                QMessageBox.critical(self, "Error", 'Координата x должна лежать в диапозоне от ' + str(MIN_X) +
+                                     ' до ' + str(MAX_X) + '!')
+                return False
+        else:
+            if MIN_Y <= int_value <= MAX_Y:
+                return True
+            else:
+                QMessageBox.critical(self, "Error", 'Координата y должна лежать в диапозоне от ' + str(MIN_Y) +
+                                     ' до ' + str(MAX_Y) + '!')
+                return False
 
     def get_value(self):
-        text = self.editor.text()
-        # TODO need to add validations
-        return int(text)
+        return self.__value
 
-    def onValueChanged(self):
+    def _onValueChanged(self):
+        input_text = self.__editor.text()
+        result = self.__validate_input(input_text)
+
+        if result:
+            self.__value = int(input_text)
+            self.location_changed.emit(self.__value)
+        else:
+            self.__editor.setText(str(self.__value))
+
+
+class NamedCoordinatePlaceholder(SimpleCoordinatePlaceholder):
+    location_changed = Signal(int)
+
+    def __init__(self, initial_value: int, coordinate: Coordinate, name: str = ''):
+        super().__init__(initial_value, coordinate)
+
+        self.name_placeholder = NamePlaceholder(name)
+        layout = QHBoxLayout()
+        layout.addWidget(self.name_placeholder)
+        self.setLayout(layout)
+
+    def _onValueChanged(self):
         self.location_changed.emit(self.get_value())
 
 
@@ -60,12 +110,11 @@ class PointLocationPlaceholder(QWidget):
         self.initial_location = initial_location
         self.location = initial_location
 
-        if str != '':
-            self.name_placeholder = NamePlaceholder(name)
+        self.name_placeholder = NamePlaceholder(name)
         self.name_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.x_box = SimpleCoordinatePlaceholder(initial_location.x(), 'x:')
+        self.x_box = NamedCoordinatePlaceholder(initial_location.x(), Coordinate.x, 'x:')
         self.x_box.location_changed.connect(self._perform_x_change)
-        self.y_box = SimpleCoordinatePlaceholder(initial_location.y(), 'y:')
+        self.y_box = NamedCoordinatePlaceholder(initial_location.y(), Coordinate.y,  'y:')
         self.y_box.location_changed.connect(self._perform_y_change)
 
         h_layout = QHBoxLayout()
@@ -161,12 +210,12 @@ class GeneratorLocationEditorPlaceholder(QWidget):
         return self._generators_locations
 
     def __enrich_x_table_cell(self, gener_num: int, initial_x_value: int):
-        x_widget = GeneratorCoordinatePlaceholder(gener_num, initial_x_value)
+        x_widget = GeneratorCoordinatePlaceholder(gener_num, initial_x_value, Coordinate.x)
         x_widget.generator_coordinate_changed.connect(self.__perform_x_change)
         self.table.setCellWidget(gener_num, 1, x_widget)
 
     def __enrich_y_table_cell(self, gener_num: int, initial_y_value: int):
-        y_widget = GeneratorCoordinatePlaceholder(gener_num, initial_y_value)
+        y_widget = GeneratorCoordinatePlaceholder(gener_num, initial_y_value, Coordinate.y)
         y_widget.generator_coordinate_changed.connect(self.__perform_y_change)
         self.table.setCellWidget(gener_num, 2, y_widget)
 
@@ -187,8 +236,8 @@ class GeneratorCoordinatePlaceholder(SimpleCoordinatePlaceholder):
     generator_id: int
     generator_coordinate_changed = Signal(int, int)
 
-    def __init__(self, generator_id: int, initial_value: int):
-        super().__init__(initial_value)
+    def __init__(self, generator_id: int, initial_value: int, coordinate: Coordinate):
+        super().__init__(initial_value, coordinate)
         self.generator_id = generator_id
 
     def onValueChanged(self):

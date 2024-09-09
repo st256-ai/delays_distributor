@@ -32,6 +32,7 @@ class DelaysPlaceholder(QWidget):
 
     __INITIAL_DELAY: float = 0.0
     __delays: {int, float}
+    __previous_delays: {int, float}
 
     def __init__(self):
         super().__init__()
@@ -44,8 +45,10 @@ class DelaysPlaceholder(QWidget):
         grid_layout = QGridLayout()
 
         self.__delays = {}
+        self.__previous_delays = {}
         for i in range(0, 8):
             self.__delays[i] = self.__INITIAL_DELAY
+            self.__previous_delays[i] = self.__INITIAL_DELAY
             current_item = DelayViewer(i + 1, self.__INITIAL_DELAY)
             self.delays_placeholders[i] = current_item
             parity_flag = i % 2
@@ -56,6 +59,10 @@ class DelaysPlaceholder(QWidget):
         main_layout.addLayout(grid_layout)
         self.setLayout(main_layout)
 
+    def set_previous_delays(self, new_delays: dict[int, float]):
+        for i in range(0, 8):
+            self.__previous_delays[i] = new_delays[i]
+
     def set_delays(self, new_delays: dict[int, float]):
         for i in range(0, 8):
             self.__delays[i] = new_delays[i]
@@ -63,6 +70,9 @@ class DelaysPlaceholder(QWidget):
 
     def get_delays(self):
         return self.__delays
+
+    def get_previous_delays(self):
+        return self.__previous_delays
 
     def reset_delays(self):
         for i in range(0, 8):
