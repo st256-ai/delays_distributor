@@ -3,8 +3,10 @@ module top(
 	input wire i_uart_rx,					 // input port for UART reciever
 	output wire [7:0] o_modulating, 		 // modulating signals for chaotic generators
 	output wire o_uart_tx,					 // output port for UART transmitter 
-	output wire [2:0] o_current_byte_num,
-	output wire o_phaseupdown
+	output wire [2:0] o_current_state_1,
+	output wire [2:0] o_current_state_2,
+	output wire o_pll_to_update,
+	output wire o_phasestep_2
 );
 
 
@@ -50,7 +52,14 @@ initial begin
 	areset_2 <= 1'b0;
 end
 
-assign o_phaseupdown = phaseupdown;
+//always @(posedge rxReady or negedge txReady) begin
+//	if(~txReady)
+//		txLoad <= 1'b0;
+//	else if(rxReady) begin
+//		txLoad <= 1'b1;
+//		txData <= rxData;
+//	end
+//end
 
 UART uart
 (
@@ -76,7 +85,7 @@ pll_0_3 pll_0_3(
 	.phasecounterselect(phasecounter_1),
 	.phaseupdown(phaseupdown),
 	.phasestep(phasestep_1),
-	.scanclk(wc0),
+	.scanclk(i_clk),
 	.c0(wc0),
 	.c1(wc1),
 	.c2(wc2),
@@ -91,7 +100,7 @@ pll_4_7 pll_4_7(
 	.phasecounterselect(phasecounter_2),
 	.phaseupdown(phaseupdown),
 	.phasestep(phasestep_2),
-	.scanclk(wc4),
+	.scanclk(i_clk),
 	.c0(wc4),
 	.c1(wc5),
 	.c2(wc6),
@@ -107,7 +116,7 @@ uart_data_mapper uart_data_mapper(
 	.o_periods_to_process(periods_to_process),
 	.o_phasecounterselect_1(phasecounter_1),
 	.o_phasecounterselect_2(phasecounter_2),
-	.o_current_byte_num(o_current_byte_num),
+	//.o_current_byte_num(o_current_byte_num),
 	.o_pll_to_update(pll_to_update),
 	.o_phaseupdown(phaseupdown),
 	.o_shift_ready(shift_ready)
@@ -118,8 +127,9 @@ phase_shift_processor #(0) phase_shift_processor_1 (
 	.i_periods_to_process(periods_to_process),
 	.i_phasedone(phasedone_1),
 	.i_ready(shift_ready),
-	.i_pll_to_update(phasecounter_1),
-	.o_phasestep(phasestep_1)
+	.i_pll_to_update(pll_to_update),
+	.o_phasestep(phasestep_1),
+	.o_current_state(o_current_state_1)
 );
 
 phase_shift_processor #(1) phase_shift_processor_2 (
@@ -127,8 +137,9 @@ phase_shift_processor #(1) phase_shift_processor_2 (
 	.i_periods_to_process(periods_to_process),
 	.i_phasedone(phasedone_2),
 	.i_ready(shift_ready),
-	.i_pll_to_update(phasecounter_2),
-	.o_phasestep(phasestep_2)
+	.i_pll_to_update(pll_to_update),
+	.o_phasestep(phasestep_2),
+	.o_current_state(o_current_state_2)
 );
 
 assign o_modulating[0] = !wc0;
@@ -140,6 +151,30 @@ assign o_modulating[5] = !wc5;
 assign o_modulating[6] = !wc6;
 assign o_modulating[7] = !wc7;
 
+/////////////////////////////////////////////DEBUG section//////////////////////////////////////////////////
+assign o_pll_to_update = pll_to_update;
+
+assign o_shift_ready = shift_ready;
+assign o_phasestep_2 = phasestep_2;
+
+//assign o_phaseupdown = phaseupdown; 
+
+//assign o_phasedone_1 = phasedone_1;
+//assign o_phasedone_2 = phasedone_2;
+
+//assign o_phasecounter_1 = phasecounter_1;
+//assign o_phasecounter_2 = phasecounter_2;
+
+//assign o_periods_to_process[0] = periods_to_process[0];
+//assign o_periods_to_process[1] = periods_to_process[1];
+//assign o_periods_to_process[2] = periods_to_process[2];
+//assign o_periods_to_process[3] = periods_to_process[3];
+//assign o_periods_to_process[4] = periods_to_process[4];
+//assign o_periods_to_process[5] = periods_to_process[5];
+//assign o_periods_to_process[6] = periods_to_process[6];
+//assign o_periods_to_process[7] = periods_to_process[7];
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 endmodule
 
 
@@ -148,7 +183,7 @@ module uart_shift_processor_integration_tb();
 
 	localparam [7:0] INITIAL_PERIODS_NUM = 8'b00110101;
 	localparam [7:0] BASE = 8'b00110000;
-	localparam [7:0] STOP_SIGNAL = 8'b01010011;
+	localparam [7:0] STOP_SIGNAL = 8'b01110011;
 
 	reg clk;
 	reg [7:0] i_rx_data;

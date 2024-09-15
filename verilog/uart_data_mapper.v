@@ -13,7 +13,7 @@ module uart_data_mapper(
 
 localparam [7:0] INIT = 8'b00000000;
 localparam [7:0] BASE = 8'b00110000;
-localparam [7:0] STOP_SIGNAL = 8'b01010011;
+localparam [7:0] STOP_SIGNAL = 8'b01110011;
 
 localparam [2:0] INIT_COUNTER = 3'b110;
 
@@ -34,15 +34,15 @@ initial begin
 	o_periods_to_process <= INIT;
 	o_pll_to_update <= 1'b0;
 	o_shift_ready <= 1'b0;
-	o_phaseupdown <= 1'b0;
+	o_phaseupdown <= 1'b1;
 end
 
 assign o_current_byte_num = current_byte_num;
 assign mapped_rx_data = i_rx_data - BASE;
 assign reduced_rx_data = mapped_rx_data[2:0];
 
-always @(negedge i_clk) begin
-	if (o_shift_ready == 1'b1 && prev_o_shift_ready == 1'b0) begin
+always @(posedge i_clk) begin
+	if (o_shift_ready == 1'b1 && prev_o_shift_ready == 1'b1) begin
 		o_shift_ready <= 1'b0;
 	end
 
@@ -60,7 +60,7 @@ always @(negedge i_clk) begin
 		end
 		
 		if (current_byte_num == 3'b001) begin
-			o_phaseupdown <= reduced_rx_data[0];
+			o_phaseupdown <= mapped_rx_data[0];
 		end
 		
 		if (current_byte_num > 3'b001) begin
@@ -87,7 +87,7 @@ module uart_data_mapper_testbench();
 
 	localparam [7:0] INITIAL_PERIODS_NUM = 8'b00110101;
 	localparam [7:0] BASE = 8'b00110000;
-	localparam [7:0] STOP_SIGNAL = 8'b01010011;
+	localparam [7:0] STOP_SIGNAL = 8'b01110011;
 	localparam [2:0] INITIAL_COUNTER = 3'b110;
 
 	reg i_clk;

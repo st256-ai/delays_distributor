@@ -4,7 +4,8 @@ module phase_shift_processor #(parameter PLL_NUM =0) (
 	input wire i_phasedone,
 	input wire i_ready,
 	input wire i_pll_to_update,
-	output reg o_phasestep
+	output reg o_phasestep,
+	output wire [2:0] o_current_state
 );
 
 localparam [2:0] LISTEN = 3'b000;
@@ -18,6 +19,8 @@ reg _phase_done;
 
 reg [2:0] state;
 reg [2:0] next_state;
+
+assign o_current_state = state;
 
 initial begin
 	_processed_periods <= 8'b00000000;
@@ -37,7 +40,7 @@ always @(*) begin
 		LISTEN: 
 			next_state <= i_ready && PLL_NUM == i_pll_to_update ? SHIFT : LISTEN;
 		SHIFT:
-			next_state <= _cnt >= 3'b001 && !_phase_done ? VALIDATE : SHIFT;
+			next_state <= !_phase_done ? VALIDATE : SHIFT;
 		VALIDATE: 
 			next_state <= _processed_periods >= i_periods_to_process ? RESET : SHIFT;
 		RESET: 
@@ -48,34 +51,30 @@ end
 always @(negedge i_clk) begin
 	case(state)
 		LISTEN: begin
-			_cnt = 3'b000;
-			o_phasestep = 1'b0;
+			_cnt <= 3'b000;
+			o_phasestep <= 1'b0;
 		end
 		SHIFT: begin
-			_cnt = _cnt + 1'b1;
-			if (_cnt == 1) begin
-				o_phasestep = 1'b1;
-				_processed_periods = _processed_periods + 1'b1;
-			end
-			
-			if (_cnt > 2) begin
-				o_phasestep = 1'b0;
+			if (_cnt == 3'b000) begin
+				o_phasestep <= 1'b1;
+				_processed_periods <= _processed_periods + 1'b1;
 			end
 			
 			if (!i_phasedone) begin
-				_phase_done = 1'b0;
-				//if(_cnt >= 1) begin
-				//	o_phasestep <= 1'b0;
-				//end
-			end
+				_phase_done <= 1'b0;
+				if(_cnt >= 3'b010) begin
+					o_phasestep <= 1'b0;
+				end
+			end else
+				_cnt <= _cnt + 1'b1;
 		end
 		VALIDATE: begin
-			_cnt = 3'b000;
-			_phase_done = 1'b1;
-			o_phasestep = 1'b0;
+			_cnt <= 3'b000;
+			_phase_done <= 1'b1;
+			o_phasestep <= 1'b0;
 		end
 		RESET: begin
-			_processed_periods = 8'b00000000;
+			_processed_periods <= 8'b00000000;
 		end
    endcase
 end
