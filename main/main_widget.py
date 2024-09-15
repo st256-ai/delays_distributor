@@ -76,7 +76,7 @@ class MainWidget(QWidget):
         self.grid_widget.reset_grid()
 
     def onSendDelays(self):
-        # send_data_to_fpga(self, self.delays_widget.get_previous_delays(), 0)
+        send_data_to_fpga(self, self.delays_widget.get_previous_delays(), 0)
         delays = self.delays_widget.get_delays()
         send_data_to_fpga(self, delays, 1)
         self.delays_widget.set_previous_delays(delays)

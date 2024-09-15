@@ -77,4 +77,5 @@ class DelaysPlaceholder(QWidget):
     def reset_delays(self):
         for i in range(0, 8):
             self.__delays[i] = self.__INITIAL_DELAY
+            self.__previous_delays[i] = self.__INITIAL_DELAY
             self.delays_placeholders[i].set_value(self.__INITIAL_DELAY)

@@ -18,7 +18,7 @@ def determine_color(item_type):
 
 
 class SystemItem(QGraphicsEllipseItem):
-    RADIUS: int = 18
+    DIAMETER: int = 18
 
     text: str
     item_type: SystemItemType
@@ -40,9 +40,9 @@ class SystemItem(QGraphicsEllipseItem):
 
     def set_location(self, location: QPoint):
         self.location = location
-        radius = self.RADIUS / 2
+        radius = self.DIAMETER / 2
         modified_location = QPoint(int(location.x() - radius), int(location.y() - radius))
-        self.rect: QRect = QRect(modified_location, QSize(self.RADIUS, self.RADIUS))
+        self.rect: QRect = QRect(modified_location, QSize(self.DIAMETER, self.DIAMETER))
         self.setRect(self.mapRectFromScene(self.rect))
 
     def paint(self, painter, option, widget):
@@ -92,7 +92,7 @@ class GridPlaceholder(QWidget):
 
 
 class Scene(QGraphicsScene):
-    POINT_RADIOS = 9.0
+    POINT_DIAMETER = 9.0
 
     generator_items: dict[int, SystemItem]
     signal_distributor_item: SystemItem
@@ -122,8 +122,8 @@ class Scene(QGraphicsScene):
         self.addItem(generator_item)
 
     def add_point(self, location: QPoint):
-        rect = QRectF(location.x() - (self.POINT_RADIOS / 2), location.y() - (self.POINT_RADIOS / 2), self.POINT_RADIOS,
-                      self.POINT_RADIOS)
+        rect = QRectF(location.x() - (self.POINT_DIAMETER / 2), location.y() - (self.POINT_DIAMETER / 2),
+                      self.POINT_DIAMETER, self.POINT_DIAMETER)
         color = QColor('black')
 
         self.point_item = self.addEllipse(rect, QPen(color), QBrush(color))
@@ -134,6 +134,7 @@ class Scene(QGraphicsScene):
             self.removeItem(previous_item)
 
         self.add_generator(gener_num, new_location)
+        return True
 
     def change_point_location(self, new_location: QPoint):
         if self.point_item is not None:

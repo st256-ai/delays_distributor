@@ -7,7 +7,7 @@ from PySide6.QtSerialPort import QSerialPortInfo
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 CALIBRATE_FILE_PATH = '../resources/calibrate.txt'
-SLEEP_TIME = 1  # seconds
+SLEEP_TIME = 0.01  # seconds
 SHIFT_QUANTUM = 100  # picoseconds
 BAUD_RATE = 921600
 

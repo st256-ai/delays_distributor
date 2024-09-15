@@ -43,12 +43,15 @@ class SimpleCoordinatePlaceholder(QWidget):
         layout.addWidget(self.__editor)
         self.setLayout(layout)
 
+    def get_editor(self):
+        return self.__editor
+
     def set_value(self, new_value: int):
-        self.__validate_input(new_value)
+        self._validate_input(new_value)
         self.__value = new_value
         self.__editor.setText(str(new_value))
 
-    def __validate_input(self, new_value) -> bool:
+    def _validate_input(self, new_value) -> bool:
         if isinstance(new_value, str):
             try:
                 int(new_value)
@@ -77,7 +80,7 @@ class SimpleCoordinatePlaceholder(QWidget):
 
     def _onValueChanged(self):
         input_text = self.__editor.text()
-        result = self.__validate_input(input_text)
+        result = self._validate_input(input_text)
 
         if result:
             self.__value = int(input_text)
@@ -85,9 +88,12 @@ class SimpleCoordinatePlaceholder(QWidget):
         else:
             self.__editor.setText(str(self.__value))
 
+    def validate_input_text(self) -> bool:
+        input_text = self.__editor.text()
+        return self._validate_input(input_text)
+
 
 class NamedCoordinatePlaceholder(SimpleCoordinatePlaceholder):
-    location_changed = Signal(int)
 
     def __init__(self, initial_value: int, coordinate: Coordinate, name: str = ''):
         super().__init__(initial_value, coordinate)
@@ -96,9 +102,6 @@ class NamedCoordinatePlaceholder(SimpleCoordinatePlaceholder):
         layout = QHBoxLayout()
         layout.addWidget(self.name_placeholder)
         self.setLayout(layout)
-
-    def _onValueChanged(self):
-        self.location_changed.emit(self.get_value())
 
 
 class PointLocationPlaceholder(QWidget):
@@ -170,8 +173,6 @@ class GeneratorLocationEditorPlaceholder(QWidget):
         self.table.setColumnCount(3)
         self.table.setRowCount(8)
 
-        # self.table.setContentsMargins(QtWidgets.QHeaderView.SizeAdjustPolicy.AdjustIgnored)
-
         self.table.setHorizontalHeaderLabels(["Номер", "x", "y"])
         self.table.horizontalHeaderItem(0).setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.table.verticalHeader().setVisible(False)
@@ -240,5 +241,12 @@ class GeneratorCoordinatePlaceholder(SimpleCoordinatePlaceholder):
         super().__init__(initial_value, coordinate)
         self.generator_id = generator_id
 
-    def onValueChanged(self):
-        self.generator_coordinate_changed.emit(self.generator_id, self.get_value())
+    def _onValueChanged(self):
+        input_text = self.get_editor().text()
+        result = self._validate_input(input_text)
+
+        if result:
+            self.__value = int(input_text)
+            self.generator_coordinate_changed.emit(self.generator_id, self.__value)
+        else:
+            self.__editor.setText(str(self.__value))
