@@ -7,7 +7,7 @@ from PySide6.QtSerialPort import QSerialPortInfo
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 CALIBRATE_FILE_PATH = '../resources/calibrate.txt'
-SLEEP_TIME = 0.01  # seconds
+SLEEP_TIME = 0.1  # seconds
 SHIFT_QUANTUM = 100  # picoseconds
 BAUD_RATE = 921600
 
@@ -56,6 +56,8 @@ def read_data_from_file() -> {int, (float, int)}:
 
 
 def send_single_slice_of_data_to_fpga(widget: QWidget, gener_num: int, delay: float, shift_direction: int):
+    if delay == 0.0:
+        return
     send_data_to_fpga(widget, {gener_num: delay}, shift_direction)
 
 
@@ -74,6 +76,9 @@ def send_data_to_fpga(widget: QWidget, delays: {int, float}, shift_direction: in
     dir_string = str(shift_direction)
     ser = serial.Serial(str(ports[0].portName()), BAUD_RATE)
     for k, v in data_to_send.items():
+        if v == 0:
+            continue
+
         print('Sending gener_num...')
         ser.write(str.encode(str(k), encoding='ascii'))
         time.sleep(SLEEP_TIME)

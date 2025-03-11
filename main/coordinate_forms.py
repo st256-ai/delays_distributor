@@ -5,11 +5,11 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QWidget, QLabel, QLineEdit, QHBoxLayout, QVBoxLayout, QTableWidget, \
     QTableWidgetItem, QHeaderView, QMessageBox
 
-MIN_X = 10
-MAX_X = 240
+MIN_X = 0
+MAX_X = 10000
 
-MIN_Y = 10
-MAX_Y = 190
+MIN_Y = 0
+MAX_Y = 10000  # TODO необходимо уточнить пределы для x/y координат
 
 
 class Coordinate(enum.Enum):
@@ -117,7 +117,7 @@ class PointLocationPlaceholder(QWidget):
         self.name_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.x_box = NamedCoordinatePlaceholder(initial_location.x(), Coordinate.x, 'x:')
         self.x_box.location_changed.connect(self._perform_x_change)
-        self.y_box = NamedCoordinatePlaceholder(initial_location.y(), Coordinate.y,  'y:')
+        self.y_box = NamedCoordinatePlaceholder(initial_location.y(), Coordinate.y, 'y:')
         self.y_box.location_changed.connect(self._perform_y_change)
 
         h_layout = QHBoxLayout()
